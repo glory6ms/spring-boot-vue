@@ -1,0 +1,48 @@
+spring:
+  datasource:
+#    url: jdbc:mysql://39.106.7.57:3306/ais?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&allowMultiQueries=true&useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://39.106.7.57:3306/ais?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&allowMultiQueries=true&useSSL=false&serverTimezone=UTC
+    username: root
+    password: root
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      #      password: 123456
+      # 连接超时时间（ms）
+      timeout: 10000
+      # Redis默认情况下有16个分片，这里配置具体使用的分片，默认是0
+      database: 0
+      lettuce:
+        pool:
+          # 连接池最大连接数（使用负值表示没有限制） 默认 8
+          max-active: 100
+          # 连接池最大阻塞等待时间（使用负值表示没有限制） 默认 -1
+          max-wait: -1
+          # 连接池中的最大空闲连接 默认 8
+          max-idle: 8
+          # 连接池中的最小空闲连接 默认 0
+          min-idle: 0
+  jpa:
+    database: MySQL
+#    database-platform: com.demo2.demo.config.MysqlConfig
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+
+  main:
+    allow-bean-definition-overriding: true
+  elasticsearch:
+    rest:
+      uris: [http://localhost:9200,http://localhost:9201,http://localhost:9202]
+
+
+server:
+  port: 5003
+  tomcat:
+    accesslog:
+      encoding: UTF-8
+    uri-encoding: UTF-8
+  compression:
+    enabled: true
+
+
