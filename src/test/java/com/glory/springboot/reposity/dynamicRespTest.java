@@ -3,16 +3,26 @@ package com.glory.springboot.reposity;
 import com.glory.springboot.entities.DynamicEntity;
 import com.glory.springboot.entities.es_dynamic;
 import com.google.gson.Gson;
+import org.elasticsearch.common.geo.GeoDistance;
+import org.elasticsearch.common.unit.DistanceUnit;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.IndexQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.elasticsearch.index.query.QueryBuilders.geoDistanceQuery;
+import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
@@ -60,5 +70,23 @@ class dynamicRespTest {
 //            queries.clear();
 //        }
 
+    }
+    @Test
+    void test02(){
+        String[] include = {"mmsi","location"};
+        FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,null);
+        PageRequest pageRequest = PageRequest.of(0,100);
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
+                .must(rangeQuery("time").gte("2017-02-05").lte("2017-02-08"))
+                .filter(geoDistanceQuery("location").distance(50, DistanceUnit.KILOMETERS).point(31.90,120.0));
+        NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
+                .withSourceFilter(fetchSourceFilter)
+                .withPageable(pageRequest);
+        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
+        System.out.println(search.getTotalHits());
+        for (int i=0;i<10;i++){
+            System.out.println(search.getSearchHit(i));
+        }
     }
 }

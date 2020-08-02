@@ -37,6 +37,10 @@ public class mycontrol {
     public String QueryByTime(@RequestBody Map<String,Object> params) {
 //        String qtime = request.getParameter("date");
         Object timein = params.get("timein");
+        Object timeout = params.get("timeout");
+        Object centerPoint = params.get("CenterPoint");
+        Object lineLength = params.get("LineLength");
+
         System.out.println(timein);
         System.out.println(params);
         return "success";
