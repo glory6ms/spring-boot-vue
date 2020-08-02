@@ -21,8 +21,9 @@ class esRespTest {
         es_dynamic.did=1;
         es_dynamic.landCourse=new BigDecimal(1.0);
         es_dynamic.landSpeed=new BigDecimal(1.0);
-        es_dynamic.lng=new BigDecimal(113.0);
-        es_dynamic.lat=new BigDecimal(30.0);
+
+        es_dynamic.location[0]=new BigDecimal(113.0);
+        es_dynamic.location[1]=new BigDecimal(30.0);
         esResp.save(es_dynamic);
 
 

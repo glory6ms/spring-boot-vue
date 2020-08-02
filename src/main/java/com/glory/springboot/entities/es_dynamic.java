@@ -8,8 +8,9 @@ import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.util.Arrays;
 
-@Document(indexName = "dongtai")
+@Document(indexName = "dongtaii")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -19,8 +20,7 @@ public class es_dynamic implements Serializable {
     public int did;
     public int mmsi;
 
-    public BigDecimal lng;
-    public BigDecimal lat;
+    public BigDecimal[] location = new BigDecimal[2];
 
     public BigDecimal landSpeed;
     public BigDecimal landCourse;
@@ -38,8 +38,7 @@ public class es_dynamic implements Serializable {
         return "es_dynamic{" +
                 "did=" + did +
                 ", mmsi=" + mmsi +
-                ", lng=" + lng +
-                ", lat=" + lat +
+                ", location=" + Arrays.toString(location) +
                 ", landSpeed=" + landSpeed +
                 ", landCourse=" + landCourse +
                 ", shipCourse=" + shipCourse +
