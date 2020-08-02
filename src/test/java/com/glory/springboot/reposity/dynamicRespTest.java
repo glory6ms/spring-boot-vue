@@ -71,19 +71,48 @@ class dynamicRespTest {
 //        }
 
     }
+
+    /**
+     *{
+     * 	"_source":["mmsi","location","time"],
+     * 	"query":{
+     * 		"bool":{
+     * 			"filter":[{
+     * 				"range":{
+     * 					"time":{
+     * 						"gte":"2017-02-05",
+     * 						"lte":"2017-02-08"
+     *                                        }* 				}},{
+     * 					"geo_distance":{
+     * 						"distance": "10km",
+     * 						"distance_type": "plane",
+     * 						"location":{
+     * 							"lat":31.92,
+     * 							"lon":120.855
+     *
+     *                        }
+     *                    }
+     *                }
+     *
+     * 			]
+     * 		}
+     * 	}
+     * }
+     */
     @Test
     void test02(){
         String[] include = {"mmsi","location"};
         FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,null);
         PageRequest pageRequest = PageRequest.of(0,100);
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                .must(rangeQuery("time").gte("2017-02-05").lte("2017-02-08"))
-                .filter(geoDistanceQuery("location").distance(50, DistanceUnit.KILOMETERS).point(31.90,120.0));
+                .filter(rangeQuery("time").gte("2017-02-05").lte("2017-02-08")) //must。filter,none
+                .filter(geoDistanceQuery("location").distance(70, DistanceUnit.KILOMETERS).point(31.90,120.0).geoDistance(GeoDistance.PLANE)); //must ,filter ,none
         NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
                 .withSourceFilter(fetchSourceFilter)
                 .withPageable(pageRequest);
         IndexCoordinates index = IndexCoordinates.of("dongtaii");
         SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
+        System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
         System.out.println(search.getTotalHits());
         for (int i=0;i<10;i++){
             System.out.println(search.getSearchHit(i));

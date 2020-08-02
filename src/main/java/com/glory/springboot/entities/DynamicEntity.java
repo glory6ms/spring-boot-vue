@@ -135,5 +135,10 @@ public class DynamicEntity {
         this.time = time;
     }
 
-
+    public DynamicEntity() {
+    }
+    public DynamicEntity(BigDecimal lng,BigDecimal lat) {
+         this.lng = lng;
+         this.lat = lat;
+    }
 }

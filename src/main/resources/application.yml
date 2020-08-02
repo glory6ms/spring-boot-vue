@@ -33,7 +33,7 @@ spring:
     allow-bean-definition-overriding: true
   elasticsearch:
     rest:
-      uris: [http://localhost:9200,http://localhost:9201,http://localhost:9202]
+      uris: [http://localhost:9201,http://localhost:9202]
 
 
 server:
