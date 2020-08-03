@@ -65,6 +65,7 @@ class dynamicRespTest {
             }
         }
         System.out.println(count);
+        operations.bulkIndex(queries, index);
 //        if (count>1){
 //            operations.bulkIndex(queries, index);
 //            queries.clear();

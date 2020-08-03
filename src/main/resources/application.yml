@@ -22,6 +22,8 @@ spring:
           max-idle: 8
           # 连接池中的最小空闲连接 默认 0
           min-idle: 0
+    hikari:
+      max-lifetime: 120000
   jpa:
     database: MySQL
 #    database-platform: com.demo2.demo.config.MysqlConfig
@@ -33,7 +35,7 @@ spring:
     allow-bean-definition-overriding: true
   elasticsearch:
     rest:
-      uris: [http://localhost:9201,http://localhost:9202]
+      uris: [http://localhost:9200,http://localhost:9201,http://localhost:9202]
 
 
 server:

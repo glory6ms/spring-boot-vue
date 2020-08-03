@@ -7,27 +7,32 @@ import org.elasticsearch.common.geo.GeoDistance;
 import org.elasticsearch.common.unit.DistanceUnit;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
+import org.elasticsearch.search.sort.SortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Repository;
 
+import javax.persistence.criteria.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
-import static org.elasticsearch.index.query.QueryBuilders.geoDistanceQuery;
-import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Repository
 public class mydao {
@@ -35,36 +40,55 @@ public class mydao {
     dynamicResp dynamicResp;
     @Autowired
     private ElasticsearchOperations operations;
-    public Collection<DynamicEntity> queryLntByTime(String Timein, String Timeout){
-        Date timein = null;
-        Date timeout = null;
-        try {
-            timein = new SimpleDateFormat("yyyy-MM-dd").parse(Timein);
-            timeout = new SimpleDateFormat("yyyy-MM-dd").parse(Timeout);
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-        Collection<DynamicEntity> objects = dynamicResp.findBetweenTime(Timein, Timeout);
-        return objects;
+    public Page<DynamicEntity> queryLntByTime(String Timein, String Timeout){
+//        Date timein = null;
+//        Date timeout = null;
+//        try {
+//            timein = new SimpleDateFormat("yyyy-MM-dd").parse(Timein);
+//            timeout = new SimpleDateFormat("yyyy-MM-dd").parse(Timeout);
+//        } catch (ParseException e) {
+//            e.printStackTrace();
+//        }
+        Specification specification = new Specification() {
+            @Override
+            public Predicate toPredicate(Root root, CriteriaQuery criteriaQuery, CriteriaBuilder criteriaBuilder) {
+                Path time =root.get("time");
+                Predicate predicate = criteriaBuilder.between(time, Timein, Timeout);
+                return predicate;
+            }
+        };
+        Sort sort = Sort.by(Sort.Order.asc("did"));
+        Pageable pageable = PageRequest.of(0, 30000, sort);
+        Page<DynamicEntity> page1 = dynamicResp.findAll(specification, pageable);
+        System.out.println(page1.getContent().size());
+        return page1;
+//        Collection<DynamicEntity> objects = dynamicResp.findBetweenTime(Timein, Timeout);
+//        return objects;
     }
 
     public List<SearchHit<es_dynamic>> QueryByTimeAndLocation(String timein, String timeout, Double lng,Double lat, Double lineLength){
         String[] include = {"mmsi","location","landCourse","landSpeed","time"};
         FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,null);
         PageRequest pageRequest = PageRequest.of(0,100);
+//        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
+//                .filter(rangeQuery("time").gte(timein).lte(timeout)) //must。filter,none
+//                .filter(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE)); //must ,filter ,none
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                .filter(rangeQuery("time").gte(timein).lte(timeout)) //must。filter,none
-                .filter(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE)); //must ,filter ,none
+                .filter(boolQuery().must(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE))
+                .must(rangeQuery("time").gte(timein).lte(timeout)));
+        GeoDistanceSortBuilder sort = SortBuilders.geoDistanceSort("location", lat, lng).geoDistance(GeoDistance.PLANE).unit(DistanceUnit.KILOMETERS).order(SortOrder.ASC);
         NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
                 .withSourceFilter(fetchSourceFilter)
                 .withPageable(pageRequest);
+//                .withSort(sort)
         IndexCoordinates index = IndexCoordinates.of("dongtaii");
         SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
         List<SearchHit<es_dynamic>> searchHits = search.getSearchHits();
         System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
-        System.out.println(search.getTotalHits());
-        for (int i=0;i<10;i++){
-            System.out.println(search.getSearchHit(i));
+        System.out.println("领域内的点个数: "+search.getTotalHits());
+        Iterator<SearchHit<es_dynamic>> iterator = searchHits.iterator();
+        while (iterator.hasNext()){
+            System.out.println(iterator.next().getContent());
         }
         return searchHits;
     }

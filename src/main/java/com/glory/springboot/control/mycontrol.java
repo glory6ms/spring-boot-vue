@@ -8,6 +8,7 @@ import com.glory.springboot.reposity.staticResp;
 import com.google.gson.Gson;
 import org.apache.lucene.document.DoublePoint;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.stereotype.Controller;
@@ -44,15 +45,16 @@ public class mycontrol {
 
     //根据时间段查询动态数据 post方法
     @PostMapping("/queryByTime")
-    public Collection<DynamicEntity> QueryByTime(@RequestBody Map<String,Object> params) {
+    public Page<DynamicEntity> QueryByTime(@RequestBody Map<String,Object> params) {
 //        String qtime = request.getParameter("date");
         String timein = (String) params.get("timein");
         String timeout = (String) params.get("timeout");
 //        Object centerPoint = params.get("CenterPoint");
 //        Object lineLength = params.get("LineLength");
         System.out.println(timein);
-        Collection<DynamicEntity> dynamicEntities = mydao.queryLntByTime(timein, timeout);
-        System.out.println(dynamicEntities.size());
+        Page<DynamicEntity> dynamicEntities = mydao.queryLntByTime(timein, timeout);
+
+//        System.out.println(dynamicEntities.size());
         return dynamicEntities;
     }
 //    @GetMapping("/queryByTime1")
@@ -79,8 +81,9 @@ public class mycontrol {
         String endPoint = (String) params.get("end_point");
         String[] end = endPoint.split(",");
 
+
         List<es_dynamic> check = mydao.Check(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
-        System.out.println(check.size());
+        System.out.println("流量统计" +check.size());
         return check;//landCourse,landSpeed,time
     }
 }
