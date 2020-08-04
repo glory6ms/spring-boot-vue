@@ -58,7 +58,7 @@ public class mydao {
             }
         };
         Sort sort = Sort.by(Sort.Order.asc("did"));
-        Pageable pageable = PageRequest.of(0, 30000, sort);
+        Pageable pageable = PageRequest.of(0, 20000, sort);
         Page<DynamicEntity> page1 = dynamicResp.findAll(specification, pageable);
         System.out.println(page1.getContent().size());
         return page1;
@@ -69,7 +69,7 @@ public class mydao {
     public List<SearchHit<es_dynamic>> QueryByTimeAndLocation(String timein, String timeout, Double lng,Double lat, Double lineLength){
         String[] include = {"mmsi","location","landCourse","landSpeed","time"};
         FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,null);
-        PageRequest pageRequest = PageRequest.of(0,100);
+        PageRequest pageRequest = PageRequest.of(0,1000);
 //        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
 //                .filter(rangeQuery("time").gte(timein).lte(timeout)) //must。filter,none
 //                .filter(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE)); //must ,filter ,none
@@ -81,15 +81,15 @@ public class mydao {
                 .withSourceFilter(fetchSourceFilter)
                 .withPageable(pageRequest);
 //                .withSort(sort)
-        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        IndexCoordinates index = IndexCoordinates.of("trajectory");
         SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
         List<SearchHit<es_dynamic>> searchHits = search.getSearchHits();
         System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
         System.out.println("领域内的点个数: "+search.getTotalHits());
-        Iterator<SearchHit<es_dynamic>> iterator = searchHits.iterator();
-        while (iterator.hasNext()){
-            System.out.println(iterator.next().getContent());
-        }
+//        Iterator<SearchHit<es_dynamic>> iterator = searchHits.iterator();
+//        while (iterator.hasNext()){
+//            System.out.println(iterator.next().getContent());
+//        }
         return searchHits;
     }
     public List<es_dynamic> Check(List<SearchHit<es_dynamic>> searchHits,BigDecimal lng1, BigDecimal lat1, BigDecimal lng2, BigDecimal lat2){
@@ -133,8 +133,8 @@ public class mydao {
                      *                         BigDecimal add_lng = old_lng.add(x_distance);
                      *                         BigDecimal add_lat = old_lat.add(y_distance);
                      */
-                    BigDecimal landCourse = collection2.get(0).getLandCourse();
-                    BigDecimal landSpeed = collection2.get(0).getLandSpeed();
+                    BigDecimal landCourse = collection2.get(0).landCourse;
+                    BigDecimal landSpeed = collection2.get(0).landSpeed;
                     double lc1 = Math.toRadians(landCourse.doubleValue());
                     if (lc1 > 0) {
                         //画单位为30.8666m/min
@@ -211,16 +211,15 @@ public class mydao {
                         //判断轨迹点都在一侧的情况下，船舶行驶五分钟能不能通过断面
                         es_dynamic tmp = collection2.get(0);
                         for (es_dynamic dy : collection2){
-
 //                            if(tmp.getTime().before(dy.getTime())){
-                            if(tmp.getTime().compareTo(dy.getTime())>0){
+                            if(tmp.time.compareTo(dy.time)>0){
                                 tmp = dy;
                             }
                         }
                         BigDecimal old_lng = tmp.location[0];
                         BigDecimal old_lat = tmp.location[1];
-                        BigDecimal land_course = tmp.getLandCourse();
-                        BigDecimal land_speed = tmp.getLandSpeed();
+                        BigDecimal land_course = tmp.landCourse;
+                        BigDecimal land_speed = tmp.landSpeed;
                         //行驶的航速
                         BigDecimal x_sp = land_speed.multiply(BigDecimal.valueOf(Math.sin(Math.toRadians(land_course.doubleValue())))).setScale(5, RoundingMode.HALF_UP);
                         BigDecimal y_sp = land_speed.multiply(BigDecimal.valueOf(Math.cos(Math.toRadians(land_course.doubleValue())))).setScale(5, RoundingMode.HALF_UP);

@@ -35,7 +35,7 @@ class dynamicRespTest {
     @Test
     void test1() {
         List<DynamicEntity> all = dynamicResp.findAll();
-        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        IndexCoordinates index = IndexCoordinates.of("trajectory");
         List<IndexQuery> queries = new ArrayList<>();
         Gson gson = new Gson();
         int count=0;

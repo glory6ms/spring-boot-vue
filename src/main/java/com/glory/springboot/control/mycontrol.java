@@ -81,9 +81,12 @@ public class mycontrol {
         String endPoint = (String) params.get("end_point");
         String[] end = endPoint.split(",");
 
-
-        List<es_dynamic> check = mydao.Check(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
-        System.out.println("流量统计" +check.size());
-        return check;//landCourse,landSpeed,time
+        if(start.length<1||end.length<1){
+            return null;
+        }else {
+            List<es_dynamic> check = mydao.Check(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
+            System.out.println("流量统计" + check.size());
+            return check;//landCourse,landSpeed,time
+        }
     }
 }
