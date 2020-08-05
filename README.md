@@ -82,49 +82,49 @@ boolquery可以实现多条件组合查询,理解为sql里面的连接查询
     - must == AND;  
     - must_not == NOT;  
     - should ==OR;  
-查询trajectory在时间范围内并且在以一个点为圆域范围内的文档  
-GET trajectory/_search  
-{ 
-  "query":{ 
-		"bool":{  
-			"filter":{  
-				"bool":{  
-					"must":[  
-                  { 
-                  "geo_distance":{  
-                    "distance": "0.4km",  
-                    "distance_type": "plane", 
-                    "location":{  
-                      "lat":31.9164,  
-                      "lon":120.8769  
-                      } 
-                    } 
-                  },   
-                  { 
-                    "range" : { 
-                      "time" : {  
-                        "from" : "2017-02-06",  
-                        "to" : "2017-02-07",  
-                        "include_lower" : true, 
-                        "include_upper" : true, 
-                        "boost" : 1.0 
-                      } 
-                      }
-                  }
-                ]
-             }
+查询trajectory在时间范围内并且在以一个点为圆域范围内的文档
+
+	"query":{
+		"bool":{
+			"filter":{
+				"bool":{
+					"must":[
+						{
+						"geo_distance":{
+							"distance": "0.4km",
+							"distance_type": "plane",
+							"location":{
+								"lat":31.9164,
+								"lon":120.8769
+								}
+							}
+						},
+						{
+							"range" : {
+								"time" : {
+									"from" : "2017-02-06",
+									"to" : "2017-02-07",
+									"include_lower" : true,
+									"include_upper" : true,
+									"boost" : 1.0
+								}
+								}
+						}
+					]
+				}
+					
 				}
 		}
 	}
   
 java:
 
-BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery() 
-                  .filter(boolQuery().must(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE)) 
-                  .must(rangeQuery("time").gte(timein).lte(timeout)));  
+	BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
+                .filter(boolQuery().must(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE))
+                .must(rangeQuery("time").gte(timein).lte(timeout)));
                 
-将Java与DSL相对应看查询条件最外层bool==>boolQuery(),然后过滤，因为有两个条件，所以需要组合就再加上一个bool==>boolQuery()，AND==》must连接两个条件，  
-geo_distance==>geoDistanceQuery()，内部参数照着写，可能有些方法名不完全一样，但是看简介应该也能成功找到对应的方法.rangeQuery与其是AND的关系，所以再加上一个must()，lte(),gte()地位一样
+	将Java与DSL相对应看查询条件最外层bool==>boolQuery(),然后过滤，因为有两个条件，所以需要组合就再加上一个bool==>boolQuery()，AND==》must连接两个条件，  
+	geo_distance==>geoDistanceQuery()，内部参数照着写，可能有些方法名不完全一样，但是看简介应该也能成功找到对应的方法.rangeQuery与其是AND的关系，所以再加上一个must()，lte(),gte()地位一样
 
 5.地理位置
 
@@ -134,21 +134,21 @@ geo_distance==>geoDistanceQuery()，内部参数照着写，可能有些方法�
 聚合官方文档里也很详细，实现起来也不难，比较难的就是结果集的获取，单步调试了很多次才得到统计结果，聚合得到的seach里面是个k:v嵌套怪,java里面部分字段还获取不到 
 例子，桶聚合里面统计一个字段的值落在等距区间内的个数  
 
-AbstractAggregationBuilder aggregationBuilder= AggregationBuilders.histogram("histogram_speed").field("landSpeed").interval(2.0).minDocCount(1);  
-        // 两个参数分别是要显示的和不显示的   
-NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder()    
-                .addAggregation(aggregationBuilder);    
-SearchHits<dynamic> search = operations.search(nativeSearchQueryBuilder.build(), dynamic.class, index);   
-Aggregations aggregations = search.getAggregations();   
-Map<String, Aggregation> asMap = aggregations.asMap();    
-for (String s:asMap.keySet()){    
-      ParsedHistogram ag=aggregations.get(s);   
-      List<? extends Histogram.Bucket> buckets = ag.getBuckets();   
-      for (Histogram.Bucket b:buckets){   
-          System.out.println("key is "+ b.getKeyAsString()+"---and value is "+ b.getDocCount());  
-          }    
-        map.put("speed",buckets);   
-      }   
+	AbstractAggregationBuilder aggregationBuilder= AggregationBuilders.histogram("histogram_speed").field("landSpeed").interval(2.0).minDocCount(1);  
+		// 两个参数分别是要显示的和不显示的   
+	NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder()    
+			.addAggregation(aggregationBuilder);    
+	SearchHits<dynamic> search = operations.search(nativeSearchQueryBuilder.build(), dynamic.class, index);   
+	Aggregations aggregations = search.getAggregations();   
+	Map<String, Aggregation> asMap = aggregations.asMap();    
+	for (String s:asMap.keySet()){    
+	      ParsedHistogram ag=aggregations.get(s);   
+	      List<? extends Histogram.Bucket> buckets = ag.getBuckets();   
+	      for (Histogram.Bucket b:buckets){   
+		  System.out.println("key is "+ b.getKeyAsString()+"---and value is "+ b.getDocCount());  
+		  }    
+		map.put("speed",buckets);   
+	      }   
 //buckets  k:v ==>区间:个数     
 
 
