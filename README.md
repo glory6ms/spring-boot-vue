@@ -16,7 +16,10 @@ spring:
       uris: [http://localhost:9200,http://localhost:9201,http://localhost:9202] 
 然后建立bean与repository extends ElasticsearchRepository。但是这个接口只提供了储存索引和基本的search接口，开发中与es的原生语法有一些差异。
 
-所以推荐使用ElasticsearchOperations而不是repository，通过自动注入的方法初始化之后结合实体类可以完成es官方文档列出的所有功能.
+所以推荐使用ElasticsearchOperations而不是repository，通过自动注入的方法初始化之后结合实体类可以完成es官方文档列出的所有功能.	
+
+@Autowired  
+    private ElasticsearchOperations operations;  
 
 1.查询表达式
 查询trajectory索引中船舶航行状态字段中带有机和动这些字段的记录。。省略了ip，实践中需要加上
