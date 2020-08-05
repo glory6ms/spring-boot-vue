@@ -10,35 +10,36 @@ elasticsearch -- springData ElasticSearch 版本7.50
 es学习--目前不记录es的概念和设计思路，只记录理解的内容
 
 配置：es的版本需要与springData ElasticSearch相对应，spirng boot内设置连接参数
-spring: 
-  elasticsearch:  
-    rest: 
-      uris: [http://localhost:9200,http://localhost:9201,http://localhost:9202] 
+
+	 spring: 
+	  elasticsearch:  
+	    rest: 
+	      uris: [http://localhost:9200,http://localhost:9201,http://localhost:9202] 
 然后建立bean与repository extends ElasticsearchRepository。但是这个接口只提供了储存索引和基本的search接口，开发中与es的原生语法有一些差异。
 
 所以推荐使用ElasticsearchOperations而不是repository，通过自动注入的方法初始化之后结合实体类可以完成es官方文档列出的所有功能.	
 
-@Autowired  
-    private ElasticsearchOperations operations;  
+	@Autowired  
+	    private ElasticsearchOperations operations;  
 
 1.查询表达式
 查询trajectory索引中船舶航行状态字段中带有机和动这些字段的记录。。省略了ip，实践中需要加上
 
-GET trajectory/_search
-{
-    "query": {
-        "match": {
-            "shipState": "机动"
-        }
-    }
-}
+	GET trajectory/_search
+	{
+	    "query": {
+		"match": {
+		    "shipState": "机动"
+		}
+	    }
+	}
 
 java:
 
-MatchQueryBuilder matchQueryBuilder = QueryBuilders.matchQuery("shipState","机动"); //创建查询条件这里将java与DSl对着看 matchQuery==》match，里面的参数由k:v改为k,v  
-NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(matchQueryBuilder); //创建查询体 withQuery==>query  
-IndexCoordinates index = IndexCoordinates.of("trajectory"); // trajectory索引 
-SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index); // 发出请求 
+	MatchQueryBuilder matchQueryBuilder = QueryBuilders.matchQuery("shipState","机动"); //创建查询条件这里将java与DSl对着看 matchQuery==》match，里面的参数由k:v改为k,v  
+	NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(matchQueryBuilder); //创建查询体 withQuery==>query  
+	IndexCoordinates index = IndexCoordinates.of("trajectory"); // trajectory索引 
+	SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index); // 发出请求 
 // search.getSearchHits().get(i).getContent就可以得到一个文档了 
 
 2.显示输出与排序的实现  
