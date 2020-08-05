@@ -55,27 +55,26 @@ java:
 通常的规则是，使用查询（query）语句来进行 全文 搜索或者其它任何需要影响 相关性得分 的搜索。除此以外的情况都使用过滤（filters)。
 查询trajectory中时间范围在[]内的文档
 
-GET trajectory/_search
-{
-   "query": {
-        "bool": {
-            "filter": {
-                "range": {
-                    "time": {
-                        "gte": "2017-10-20",
-                        "lte": "2017-11-10"
-                    }
-                }
-            }
-        }
-    }
-｝
+	GET trajectory/_search
+	  {
+	   "query": {
+		"bool": {
+		    "filter": {
+			"range": {
+			    "time": {
+				"gte": "2017-10-20",
+				"lte": "2017-11-10"
+			    }
+			}
+		    }
+		}
+	    }
+	｝
 
 java:
 
-BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                  .filter(rangeQuery("time").gte(timein).lte(timeout));//创建查询条件,查询体与上文类似，不再重复
-
+	BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
+			  .filter(rangeQuery("time").gte(timein).lte(timeout));//创建查询条件,查询体与上文类似，不再重复
 4.组合查询
 
 boolquery可以实现多条件组合查询,理解为sql里面的连接查询
