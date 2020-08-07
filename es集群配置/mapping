@@ -1,0 +1,74 @@
+PUT localhost:9200/dontaii
+{
+	"mappings": {
+            "properties": {
+                "aisType": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                        }
+                    }
+                },
+                "did": {
+                    "type": "long"
+                },
+                "landCourse": {
+                    "type": "float"
+                },
+                "landSpeed": {
+                    "type": "float"
+                },
+                "lat": {
+                    "type": "float"
+                },
+                "lng": {
+                    "type": "float"
+                },
+                "mmsi": {
+                    "type": "long"
+                },
+                "precion": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                        }
+                    }
+                },
+                "shipCourse": {
+                    "type": "long"
+                },
+                "shipLength": {
+                    "type": "long"
+                },
+                "shipName": {
+                    "type": "text"
+                },
+                "shipState": {
+                    "type": "text"
+                },
+                "shipType": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                        }
+                    }
+                },
+                "shipWidth": {
+                    "type": "long"
+                },
+                "time": {
+                    "type": "date",
+                    "format": "yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis"
+                },
+                "turnRate": {
+                    "type": "long"
+                }
+            }
+	}
+}

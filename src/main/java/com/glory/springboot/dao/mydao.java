@@ -6,6 +6,7 @@ import com.glory.springboot.reposity.dynamicResp;
 import org.elasticsearch.common.geo.GeoDistance;
 import org.elasticsearch.common.unit.DistanceUnit;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
@@ -16,9 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -40,15 +39,16 @@ public class mydao {
     dynamicResp dynamicResp;
     @Autowired
     private ElasticsearchOperations operations;
+    @Autowired
+    ElasticsearchRestTemplate template;
+
+    /**
+     *1-1 jpa
+     * @param Timein
+     * @param Timeout
+     * @return jpa查询前10000条动态数据
+     */
     public Page<DynamicEntity> queryLntByTime(String Timein, String Timeout){
-//        Date timein = null;
-//        Date timeout = null;
-//        try {
-//            timein = new SimpleDateFormat("yyyy-MM-dd").parse(Timein);
-//            timeout = new SimpleDateFormat("yyyy-MM-dd").parse(Timeout);
-//        } catch (ParseException e) {
-//            e.printStackTrace();
-//        }
         Specification specification = new Specification() {
             @Override
             public Predicate toPredicate(Root root, CriteriaQuery criteriaQuery, CriteriaBuilder criteriaBuilder) {
@@ -57,22 +57,48 @@ public class mydao {
                 return predicate;
             }
         };
-        Sort sort = Sort.by(Sort.Order.asc("did"));
-        Pageable pageable = PageRequest.of(0, 20000, sort);
+//        Sort sort = Sort.by(Sort.Order.asc("time"));
+        Pageable pageable = PageRequest.of(1, 1000);
         Page<DynamicEntity> page1 = dynamicResp.findAll(specification, pageable);
-        System.out.println(page1.getContent().size());
         return page1;
-//        Collection<DynamicEntity> objects = dynamicResp.findBetweenTime(Timein, Timeout);
-//        return objects;
     }
 
+    /**
+     * 2-1 es
+     * @param timein
+     * @param timeout
+     * @return List<SearchHit<es_dynamic>> 未使用评分机制，只取location字段，SearchHit<es_dynamic>.content.location
+     */
+    public List<SearchHit<es_dynamic>> queryLocationByTime(String timein, String timeout){
+        String[] include = {"location"}; // 输出参数过滤
+        FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include, null);
+        PageRequest pageRequest = PageRequest.of(0,10000);
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
+                .filter(rangeQuery("time").gte(timein).lte(timeout));
+        NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
+                .withSourceFilter(fetchSourceFilter)
+                .withPageable(pageRequest);
+        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
+        List<SearchHit<es_dynamic>> searchHits = search.getSearchHits();
+        System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
+        return searchHits;
+    }
+
+    /**
+     *
+     * @param timein：开始时间
+     * @param timeout：结束时间
+     * @param lng：中心点经度
+     * @param lat：中心点纬度
+     * @param lineLength：截面长度
+     * @return 不包含得到和其他信息的文档集合
+     */
     public List<SearchHit<es_dynamic>> QueryByTimeAndLocation(String timein, String timeout, Double lng,Double lat, Double lineLength){
-        String[] include = {"mmsi","location","landCourse","landSpeed","time"};
+        String[] include = {"mmsi","location","landCourse","landSpeed","time"}; // 输出参数过滤
         FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,null);
         PageRequest pageRequest = PageRequest.of(0,1000);
-//        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-//                .filter(rangeQuery("time").gte(timein).lte(timeout)) //must。filter,none
-//                .filter(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE)); //must ,filter ,none
+        //1-1
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
                 .filter(boolQuery().must(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE))
                 .must(rangeQuery("time").gte(timein).lte(timeout)));
@@ -81,16 +107,69 @@ public class mydao {
                 .withSourceFilter(fetchSourceFilter)
                 .withPageable(pageRequest);
 //                .withSort(sort)
-        IndexCoordinates index = IndexCoordinates.of("trajectory");
+        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        //1-1
         SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
         List<SearchHit<es_dynamic>> searchHits = search.getSearchHits();
         System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
         System.out.println("领域内的点个数: "+search.getTotalHits());
-//        Iterator<SearchHit<es_dynamic>> iterator = searchHits.iterator();
-//        while (iterator.hasNext()){
-//            System.out.println(iterator.next().getContent());
-//        }
+
+        Iterator<SearchHit<es_dynamic>> iterator = searchHits.iterator();
+        while (iterator.hasNext()){
+            System.out.println(iterator.next().getContent());
+        }
         return searchHits;
+
+        //1-2
+//        SearchScrollHits<es_dynamic> scroll = template.searchScrollStart(1000,nativeSearchQueryBuilder.build(),es_dynamic.class,index);
+//        String scrollId = scroll.getScrollId();
+//        List<String> id =new ArrayList<>();
+//        id.add(scrollId);
+//        List<SearchHit<es_dynamic>> list = new ArrayList<>();
+//        while(scroll.hasSearchHits()){
+//            list.addAll(scroll.getSearchHits());
+//            scrollId = scroll.getScrollId();
+//            scroll=template.searchScrollContinue(scrollId,1000,es_dynamic.class,index);
+//            id.add(scrollId);
+//        }
+//        template.searchScrollClear(id);
+//        System.out.println(list.size());
+//        return list;
+    }
+    public List<SearchHit<es_dynamic>> QueryByTimeAndLocation2(String timein, String timeout,Double top,Double left,Double bottom,Double right){
+        //2-1
+        String[] include = {"mmsi","location","landCourse","landSpeed","time"}; // 输出参数过滤
+        FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,null);
+        PageRequest pageRequest = PageRequest.of(0,10000);
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
+                .filter(boolQuery().must(rangeQuery("time").gte(timein).lte(timeout)))
+                .must(geoBoundingBoxQuery("location").setCorners(top,left,bottom,right));
+        NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
+                .withSourceFilter(fetchSourceFilter)
+                .withPageable(pageRequest);
+        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        //2-1
+//        SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
+//        System.out.println("领域内的点个数: "+search.getTotalHits());
+//        return search.getSearchHits();
+        //2-1
+        SearchScrollHits<es_dynamic> scroll = template.searchScrollStart(1000,nativeSearchQueryBuilder.build(),es_dynamic.class,index);
+//        System.out.println(scroll.getTotalHits());
+        String scrollId = scroll.getScrollId();
+        List<String> id =new ArrayList<>();
+        id.add(scrollId);
+        List<SearchHit<es_dynamic>> list = new ArrayList<>();
+        while(scroll.hasSearchHits()){
+            list.addAll(scroll.getSearchHits());
+            scrollId = scroll.getScrollId();
+            scroll=template.searchScrollContinue(scrollId,1000,es_dynamic.class,index);
+            id.add(scrollId);
+        }
+        template.searchScrollClear(id);
+        System.out.println(list.size());
+        return list;
+
+
     }
     public List<es_dynamic> Check(List<SearchHit<es_dynamic>> searchHits,BigDecimal lng1, BigDecimal lat1, BigDecimal lng2, BigDecimal lat2){
         List<es_dynamic> collection1= new ArrayList<>();
@@ -133,8 +212,8 @@ public class mydao {
                      *                         BigDecimal add_lng = old_lng.add(x_distance);
                      *                         BigDecimal add_lat = old_lat.add(y_distance);
                      */
-                    BigDecimal landCourse = collection2.get(0).landCourse;
-                    BigDecimal landSpeed = collection2.get(0).landSpeed;
+                    BigDecimal landCourse = collection2.get(0).getLandCourse();
+                    BigDecimal landSpeed = collection2.get(0).getLandSpeed();
                     double lc1 = Math.toRadians(landCourse.doubleValue());
                     if (lc1 > 0) {
                         //画单位为30.8666m/min
@@ -150,10 +229,10 @@ public class mydao {
                         lat_new = lat_new.add(collection2.get(0).location[1]);
                         if (!intersection(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), collection2.get(0).location[0].doubleValue(), collection2.get(0).location[1].doubleValue(), lng_new.doubleValue(), lat_new.doubleValue())) {
 
-                            System.out.println("不相交");
+//                            System.out.println("不相交");
 
                         } else {
-                            System.out.println("相交");
+//                            System.out.println("相交");
                             collection1.add(collection2.get(0));
                         }
                     }
@@ -201,195 +280,38 @@ public class mydao {
                         //相交判断无误
                         if (!intersection(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), left.get(lflag).location[0].doubleValue(), left.get(lflag).location[1].doubleValue(), right.get(rflag).location[0].doubleValue(), right.get(rflag).location[1].doubleValue())) {
 
-                            System.out.println("不相交");
+//                            System.out.println("不相交");
 
                         } else {
-                            System.out.println("相交");
+//                            System.out.println("相交");
                             collection1.add(left.get(lflag));
                         }
                     }else {
                         //判断轨迹点都在一侧的情况下，船舶行驶五分钟能不能通过断面
                         es_dynamic tmp = collection2.get(0);
                         for (es_dynamic dy : collection2){
-//                            if(tmp.getTime().before(dy.getTime())){
-                            if(tmp.time.compareTo(dy.time)>0){
+                            if(tmp.getTime().compareTo(dy.getTime())>0){
                                 tmp = dy;
                             }
                         }
                         BigDecimal old_lng = tmp.location[0];
                         BigDecimal old_lat = tmp.location[1];
-                        BigDecimal land_course = tmp.landCourse;
-                        BigDecimal land_speed = tmp.landSpeed;
-                        //行驶的航速
-                        BigDecimal x_sp = land_speed.multiply(BigDecimal.valueOf(Math.sin(Math.toRadians(land_course.doubleValue())))).setScale(5, RoundingMode.HALF_UP);
-                        BigDecimal y_sp = land_speed.multiply(BigDecimal.valueOf(Math.cos(Math.toRadians(land_course.doubleValue())))).setScale(5, RoundingMode.HALF_UP);
-                        System.out.println("x_sp:"+x_sp+"y_sp"+y_sp);
-                        //行驶了多少海里,0.03小时
-                        BigDecimal x_distance = x_sp.multiply(new BigDecimal(0.08)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
-                        BigDecimal y_distance = y_sp.multiply(new BigDecimal(0.08)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
-                        BigDecimal add_lng = old_lng.add(x_distance);
-                        BigDecimal add_lat = old_lat.add(y_distance);
-                        //相交判断无误
-                        if (!intersection(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), add_lng.doubleValue(), add_lat.doubleValue(), old_lng.doubleValue(), old_lat.doubleValue())) {
-                            System.out.println("不相交");
-                        } else {
-                            System.out.println("相交");
-                            collection1.add(tmp);
-                        }
-                    }
-                }
-            }
-        }
-        return collection1;
-    }
-    public List<DynamicEntity> queryByArea(List<DynamicEntity> collection, BigDecimal lng1, BigDecimal lat1, BigDecimal lng2, BigDecimal lat2){
-        //第二步判断船舶是否过断面
-        //通过断面的船舶集合
-        List<DynamicEntity> collection1= new ArrayList<>();
-        List<DynamicEntity> collection3 = new ArrayList<>();
-//原collection里需要把以筛选的Mmsi别开
-        for (int i = 0; i < collection.size(); i++) {
-            int flag = 0;
-            if (!collection3.isEmpty()) {
-                for (int o = 0; o < collection3.size(); o++) {
-                    if (collection3.get(o).getMmsi()==collection.get(i).getMmsi()) {
-                        flag = 1;
-                        break;
-                    }
-                }
-            }
-            if (flag == 0) {
-                List<DynamicEntity> collection2 = new ArrayList<>();
-                collection2.add(collection.get(i));
-                collection3.add(collection.get(i));
-                for (int j = i + 1; j < collection.size(); j++) {
-                    if (collection.get(j).getMmsi()==collection.get(i).getMmsi()) {
-                        collection2.add(collection.get(j));
-                    }
-                }
-
-                if (collection2.size() < 2) {
-                    //按现有速度判断五分钟后，该船的位置，把两个点相连，判断是否过断面
-                    // 需要验证一下！！
-                    /**
-                     * BigDecimal old_lng = tmp.getLng();
-                     *                         BigDecimal old_lat = tmp.getLat();
-                     *                         BigDecimal land_course = tmp.getLandCourse();
-                     *                         BigDecimal land_speed = tmp.getLandSpeed();
-                     *                         //行驶的航速
-                     *                         BigDecimal x_sp = land_speed.multiply(BigDecimal.valueOf(Math.sin(land_course.doubleValue()*Math.PI/180))).setScale(5, RoundingMode.HALF_UP);
-                     *                         BigDecimal y_sp = land_speed.multiply(BigDecimal.valueOf(Math.cos(land_course.doubleValue()*Math.PI/180))).setScale(5, RoundingMode.HALF_UP);
-                     *                         System.out.println("x_sp:"+x_sp+"y_sp"+y_sp);
-                     *                         //行驶了多少海里,0.010小时
-                     *                         BigDecimal x_distance = x_sp.multiply(new BigDecimal(0.01)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
-                     *                         BigDecimal y_distance = y_sp.multiply(new BigDecimal(0.01)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
-                     *                         BigDecimal add_lng = old_lng.add(x_distance);
-                     *                         BigDecimal add_lat = old_lat.add(y_distance);
-                     */
-                    BigDecimal landCourse = collection2.get(0).getLandCourse();
-                    BigDecimal landSpeed = collection2.get(0).getLandSpeed();
-                    double lc1 = Math.toRadians(landCourse.doubleValue());
-                    if (lc1 > 0) {
-                        //画单位为30.8666m/min
-//                        BigDecimal sp = landSpeed.multiply(new BigDecimal(30.8666 * 5));
-                        BigDecimal x_sp = landSpeed.multiply(BigDecimal.valueOf(Math.sin(lc1))).setScale(5, RoundingMode.HALF_UP);
-                        BigDecimal y_sp = landSpeed.multiply(BigDecimal.valueOf(Math.cos(lc1))).setScale(5, RoundingMode.HALF_UP);
-
-                        //五分钟后的移动的距离
-                        //距离是否需要转换为经纬度？
-                        BigDecimal lng_new = x_sp.multiply(new BigDecimal(0.08)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
-                        BigDecimal lat_new = y_sp.multiply(new BigDecimal(0.08)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
-                        lng_new = lng_new.add(collection2.get(0).getLng());
-                        lat_new = lat_new.add(collection2.get(0).getLat());
-                        if (!intersection(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), collection2.get(0).getLng().doubleValue(), collection2.get(0).getLat().doubleValue(), lng_new.doubleValue(), lat_new.doubleValue())) {
-
-                            System.out.println("不相交");
-
-                        } else {
-                            System.out.println("相交");
-                            collection1.add(collection2.get(0));
-                        }
-                    }
-                } else {
-                    //此处左右点筛选无误
-                    List<DynamicEntity> left = new ArrayList<>();
-                    List<DynamicEntity> right = new ArrayList<>();
-                    for (int k = 0; k < collection2.size(); k++) {
-                        Double tmp = (lat1.doubleValue() - lat2.doubleValue()) * collection2.get(k).getLng().doubleValue() + (lng2.doubleValue() - lng1.doubleValue()) * collection2.get(k).getLat().doubleValue() + lng1.doubleValue() * lat2.doubleValue() - lng2.doubleValue() * lat1.doubleValue();
-                        if (tmp > 0) {
-                            left.add(collection2.get(k));
-
-                        } else {
-                            right.add(collection2.get(k));
-                        }
-                    }
-                    if (left.size() != 0 && right.size() != 0) {
-                        //此处选择排序选最近点无误
-                        double leftlength[] = new double[left.size()];
-                        double rightlength[] = new double[right.size()];
-                        int leftnum[] = new int[left.size()];
-                        int rightnum[] = new int[right.size()];
-                        for (int lf = 0; lf < left.size(); lf++) {
-                            leftlength[lf] = getLength(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), left.get(lf).getLng().doubleValue(), left.get(lf).getLat().doubleValue());
-                            leftnum[lf] = lf;
-                        }
-                        for (int rf = 0; rf < right.size(); rf++) {
-                            rightlength[rf] = getLength(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), right.get(rf).getLng().doubleValue(), right.get(rf).getLat().doubleValue());
-                            rightnum[rf] = rf;
-                        }
-                        int lflag = 0;
-                        int rflag = 0;
-                        for (int q = 0; q < left.size(); q++) {
-                            if (leftlength[q] < leftlength[lflag]) {
-                                lflag = q;
-                            }
-                        }
-                        for (int e = 0; e < right.size(); e++) {
-                            if (rightlength[e] < rightlength[rflag]) {
-                                rflag = e;
-                            }
-                        }
-                        //System.out.println("判断是否相交。。。" + left.get(lflag).getLng().doubleValue() + "," + left.get(lflag).getLat().doubleValue() + "=" + right.get(rflag).getLng().doubleValue() + "," + left.get(lflag).getLat().doubleValue());
-
-                        //相交判断无误
-                        if (!intersection(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), left.get(lflag).getLng().doubleValue(), left.get(lflag).getLat().doubleValue(), right.get(rflag).getLng().doubleValue(), right.get(rflag).getLat().doubleValue())) {
-
-                            System.out.println("不相交");
-
-                        } else {
-                            System.out.println("相交");
-                            collection1.add(left.get(lflag));
-                        }
-                    }else {
-                        //判断轨迹点都在一侧的情况下，船舶行驶五分钟能不能通过断面
-                        DynamicEntity tmp = collection2.get(0);
-                        for (DynamicEntity dy : collection2){
-
-//                            if(tmp.getTime().before(dy.getTime())){
-                            if(tmp.getTime().compareTo(dy.getTime())>0){
-                                tmp = dy;
-                            }
-                        }
-                        BigDecimal old_lng = tmp.getLng();
-                        BigDecimal old_lat = tmp.getLat();
                         BigDecimal land_course = tmp.getLandCourse();
                         BigDecimal land_speed = tmp.getLandSpeed();
                         //行驶的航速
                         BigDecimal x_sp = land_speed.multiply(BigDecimal.valueOf(Math.sin(Math.toRadians(land_course.doubleValue())))).setScale(5, RoundingMode.HALF_UP);
                         BigDecimal y_sp = land_speed.multiply(BigDecimal.valueOf(Math.cos(Math.toRadians(land_course.doubleValue())))).setScale(5, RoundingMode.HALF_UP);
-                        System.out.println("x_sp:"+x_sp+"y_sp"+y_sp);
+//                        System.out.println("x_sp:"+x_sp+"y_sp"+y_sp);
                         //行驶了多少海里,0.03小时
                         BigDecimal x_distance = x_sp.multiply(new BigDecimal(0.08)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
                         BigDecimal y_distance = y_sp.multiply(new BigDecimal(0.08)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
                         BigDecimal add_lng = old_lng.add(x_distance);
                         BigDecimal add_lat = old_lat.add(y_distance);
-                        System.out.println(add_lng);
-                        System.out.println(add_lat);
                         //相交判断无误
                         if (!intersection(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), add_lng.doubleValue(), add_lat.doubleValue(), old_lng.doubleValue(), old_lat.doubleValue())) {
-                            System.out.println("不相交");
+//                            System.out.println("不相交");
                         } else {
-                            System.out.println("相交");
+//                            System.out.println("相交");
                             collection1.add(tmp);
                         }
                     }

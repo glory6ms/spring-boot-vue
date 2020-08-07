@@ -45,17 +45,14 @@ public class mycontrol {
 
     //根据时间段查询动态数据 post方法
     @PostMapping("/queryByTime")
-    public Page<DynamicEntity> QueryByTime(@RequestBody Map<String,Object> params) {
+    public List<SearchHit<es_dynamic>> QueryByTime(@RequestBody Map<String,Object> params) {
 //        String qtime = request.getParameter("date");
         String timein = (String) params.get("timein");
         String timeout = (String) params.get("timeout");
 //        Object centerPoint = params.get("CenterPoint");
 //        Object lineLength = params.get("LineLength");
-        System.out.println(timein);
-        Page<DynamicEntity> dynamicEntities = mydao.queryLntByTime(timein, timeout);
-
-//        System.out.println(dynamicEntities.size());
-        return dynamicEntities;
+        List<SearchHit<es_dynamic>> list = mydao.queryLocationByTime(timein, timeout);
+        return list;
     }
 //    @GetMapping("/queryByTime1")
 //    public String QueryByTime(@RequestParam("timein") String timein,@RequestParam("timeout") String timeout,@RequestParam("start_point") Double start_point,@RequestParam("end_point") Double end_point){
@@ -74,12 +71,16 @@ public class mycontrol {
         cpoint[0] = new Double(centerPoint.get(0).toString());
         cpoint[1] = new Double(centerPoint.get(1).toString());
 //        System.out.println(lineLength);
-        List<SearchHit<es_dynamic>> searchHits = mydao.QueryByTimeAndLocation(timein, timeout, cpoint[0], cpoint[1], lineLength);
         String startPoint = (String) params.get("start_point");//前端限制了这两个字段为字符串类型
         String[] start = startPoint.split(",");
 
         String endPoint = (String) params.get("end_point");
         String[] end = endPoint.split(",");
+        Double top = Math.max(Double.parseDouble(start[1]),Double.parseDouble(end[1]));
+        Double bottom = Math.min(Double.parseDouble(start[1]),Double.parseDouble(end[1]));
+        Double right = Math.max(Double.parseDouble(start[0]),Double.parseDouble(end[0]));
+        Double left = Math.min(Double.parseDouble(start[0]),Double.parseDouble(end[0]));
+        List<SearchHit<es_dynamic>> searchHits = mydao.QueryByTimeAndLocation2(timein, timeout, top, left, bottom, right);
 
         if(start.length<1||end.length<1){
             return null;
