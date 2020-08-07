@@ -154,7 +154,6 @@ public class mydao {
 //        return search.getSearchHits();
         //2-1
         SearchScrollHits<es_dynamic> scroll = template.searchScrollStart(1000,nativeSearchQueryBuilder.build(),es_dynamic.class,index);
-//        System.out.println(scroll.getTotalHits());
         String scrollId = scroll.getScrollId();
         List<String> id =new ArrayList<>();
         id.add(scrollId);
@@ -166,10 +165,8 @@ public class mydao {
             id.add(scrollId);
         }
         template.searchScrollClear(id);
-        System.out.println(list.size());
+        System.out.println("领域内的点个数: "+list.size());
         return list;
-
-
     }
     public List<es_dynamic> Check(List<SearchHit<es_dynamic>> searchHits,BigDecimal lng1, BigDecimal lat1, BigDecimal lng2, BigDecimal lat2){
         List<es_dynamic> collection1= new ArrayList<>();

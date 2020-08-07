@@ -64,16 +64,14 @@ public class mycontrol {
     public Collection<es_dynamic> QueryByTimeAndLocation(@RequestBody Map<String,Object> params) {
         String timein = (String) params.get("timein");
         String timeout = (String) params.get("timeout");
-        List centerPoint = (List) params.get("center_point");
-        Double lineLength = Double.parseDouble(params.get("line_length").toString());
-//        Double[] center_point = {120.853,31.95};
-        Double[] cpoint = new Double[2];
-        cpoint[0] = new Double(centerPoint.get(0).toString());
-        cpoint[1] = new Double(centerPoint.get(1).toString());
+//        List centerPoint = (List) params.get("center_point");
+//        Double lineLength = Double.parseDouble(params.get("line_length").toString());
+//        Double[] cpoint = new Double[2];
+//        cpoint[0] = new Double(centerPoint.get(0).toString());
+//        cpoint[1] = new Double(centerPoint.get(1).toString());
 //        System.out.println(lineLength);
         String startPoint = (String) params.get("start_point");//前端限制了这两个字段为字符串类型
         String[] start = startPoint.split(",");
-
         String endPoint = (String) params.get("end_point");
         String[] end = endPoint.split(",");
         Double top = Math.max(Double.parseDouble(start[1]),Double.parseDouble(end[1]));
@@ -81,7 +79,6 @@ public class mycontrol {
         Double right = Math.max(Double.parseDouble(start[0]),Double.parseDouble(end[0]));
         Double left = Math.min(Double.parseDouble(start[0]),Double.parseDouble(end[0]));
         List<SearchHit<es_dynamic>> searchHits = mydao.QueryByTimeAndLocation2(timein, timeout, top, left, bottom, right);
-
         if(start.length<1||end.length<1){
             return null;
         }else {
