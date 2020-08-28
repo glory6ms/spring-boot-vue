@@ -1,26 +1,15 @@
 package com.glory.springboot.control;
 
-import com.glory.springboot.dao.mydao;
-import com.glory.springboot.entities.DynamicEntity;
 import com.glory.springboot.entities.StaticEntity;
 import com.glory.springboot.entities.es_dynamic;
 import com.glory.springboot.reposity.staticResp;
-import com.google.gson.Gson;
-import org.apache.lucene.document.DoublePoint;
+import org.elasticsearch.common.geo.GeoPoint;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
-import java.lang.reflect.Array;
 import java.math.BigDecimal;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 //操作类 RestController=Controller+ResponseBody,COntrol能返回视图解析器比如html，不能返回json,xml，需要加上ResponseBody
 @RestController
@@ -87,4 +76,28 @@ public class mycontrol {
             return check;//landCourse,landSpeed,time
         }
     }
+    @PostMapping("/QueryByPolygonRange")
+    public List<SearchHit<es_dynamic>> QueryByPolygonRange(@RequestBody Map<String,Object> params) {
+        String timein = (String) params.get("timein");
+        String timeout = (String) params.get("timeout");
+        Object in = params.get("in"); // in可能为空
+        Object out = params.get("out");
+        ArrayList<List<Double>> buffer_in = (ArrayList<List<Double>>) in;
+        ArrayList<List<Double>> buffer_out = (ArrayList<List<Double>>) out;
+        List<GeoPoint> geoPoints_in = new ArrayList<>();
+        List<GeoPoint> geoPoints_out = new ArrayList<>();
+//        for (int i=0;i<buffer_out.size();i++){
+//            geoPoints.add(new GeoPoint(buffer_test.get(i).get(1),buffer_test.get(i).get(0)));
+////            System.out.println(buffer_test.get(i).get(0));
+//        }
+        for(List<Double> inPo : buffer_in){
+            geoPoints_in.add(new GeoPoint(inPo.get(1),inPo.get(0)));
+        }
+        for (List<Double> outPo : buffer_out){
+            geoPoints_out.add(new GeoPoint(outPo.get(1),outPo.get(0)));
+        }
+        List<SearchHit<es_dynamic>> searchHits = mydao.QueryByPolygonRange(timein, timeout, geoPoints_in, geoPoints_out);
+        return searchHits;
+    }
+
 }

@@ -4,19 +4,17 @@ import com.glory.springboot.entities.DynamicEntity;
 import com.glory.springboot.entities.es_dynamic;
 import com.glory.springboot.reposity.dynamicResp;
 import org.elasticsearch.common.geo.GeoDistance;
+import org.elasticsearch.common.geo.GeoPoint;
 import org.elasticsearch.common.unit.DistanceUnit;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.GeoDistanceSortBuilder;
-import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
@@ -27,8 +25,6 @@ import org.springframework.stereotype.Repository;
 import javax.persistence.criteria.*;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -78,10 +74,11 @@ public class mydao {
         NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
                 .withSourceFilter(fetchSourceFilter)
                 .withPageable(pageRequest);
-        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        IndexCoordinates index = IndexCoordinates.of("trajectory");
         SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
         List<SearchHit<es_dynamic>> searchHits = search.getSearchHits();
         System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
+        System.out.println("时间范围内的点个数:"+search.getTotalHits());
         return searchHits;
     }
 
@@ -107,7 +104,7 @@ public class mydao {
                 .withSourceFilter(fetchSourceFilter)
                 .withPageable(pageRequest);
 //                .withSort(sort)
-        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        IndexCoordinates index = IndexCoordinates.of("trajectory");
         //1-1
         SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
         List<SearchHit<es_dynamic>> searchHits = search.getSearchHits();
@@ -136,6 +133,25 @@ public class mydao {
 //        System.out.println(list.size());
 //        return list;
     }
+    public List<SearchHit<es_dynamic>> QueryByPolygonRange(String timein, String timeout, List<GeoPoint> in, List<GeoPoint> out){
+        String[] include = {"mmsi","location","time"}; // 输出参数过滤
+        FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,null);
+        PageRequest pageRequest = PageRequest.of(0,10000);
+        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
+                .filter(boolQuery().must(rangeQuery("time").gte(timein).lte(timeout)))
+                .must(geoPolygonQuery("location",out))
+                .mustNot(geoPolygonQuery("location",in));
+        NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
+                .withSourceFilter(fetchSourceFilter)
+                .withPageable(pageRequest)
+                .withSort(SortBuilders.fieldSort("mmsi").order(SortOrder.ASC))
+                .withSort(SortBuilders.fieldSort("time").order(SortOrder.ASC));
+        IndexCoordinates index = IndexCoordinates.of("trajectory");
+        SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
+        System.out.println("领域内的点个数: "+search.getTotalHits());
+        System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
+        return search.getSearchHits();
+    }
     public List<SearchHit<es_dynamic>> QueryByTimeAndLocation2(String timein, String timeout,Double top,Double left,Double bottom,Double right){
         //2-1
         String[] include = {"mmsi","location","landCourse","landSpeed","time"}; // 输出参数过滤
@@ -147,7 +163,7 @@ public class mydao {
         NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
                 .withSourceFilter(fetchSourceFilter)
                 .withPageable(pageRequest);
-        IndexCoordinates index = IndexCoordinates.of("dongtaii");
+        IndexCoordinates index = IndexCoordinates.of("trajectory");
         //2-1
 //        SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
 //        System.out.println("领域内的点个数: "+search.getTotalHits());
@@ -209,8 +225,8 @@ public class mydao {
                      *                         BigDecimal add_lng = old_lng.add(x_distance);
                      *                         BigDecimal add_lat = old_lat.add(y_distance);
                      */
-                    BigDecimal landCourse = collection2.get(0).getLandCourse();
-                    BigDecimal landSpeed = collection2.get(0).getLandSpeed();
+                    BigDecimal landCourse = collection2.get(0).landCourse;
+                    BigDecimal landSpeed = collection2.get(0).landSpeed;
                     double lc1 = Math.toRadians(landCourse.doubleValue());
                     if (lc1 > 0) {
                         //画单位为30.8666m/min
@@ -287,14 +303,14 @@ public class mydao {
                         //判断轨迹点都在一侧的情况下，船舶行驶五分钟能不能通过断面
                         es_dynamic tmp = collection2.get(0);
                         for (es_dynamic dy : collection2){
-                            if(tmp.getTime().compareTo(dy.getTime())>0){
+                            if(tmp.time.compareTo(dy.time)>0){
                                 tmp = dy;
                             }
                         }
                         BigDecimal old_lng = tmp.location[0];
                         BigDecimal old_lat = tmp.location[1];
-                        BigDecimal land_course = tmp.getLandCourse();
-                        BigDecimal land_speed = tmp.getLandSpeed();
+                        BigDecimal land_course = tmp.landCourse;
+                        BigDecimal land_speed = tmp.landSpeed;
                         //行驶的航速
                         BigDecimal x_sp = land_speed.multiply(BigDecimal.valueOf(Math.sin(Math.toRadians(land_course.doubleValue())))).setScale(5, RoundingMode.HALF_UP);
                         BigDecimal y_sp = land_speed.multiply(BigDecimal.valueOf(Math.cos(Math.toRadians(land_course.doubleValue())))).setScale(5, RoundingMode.HALF_UP);

@@ -10,7 +10,7 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Arrays;
 
-@Document(indexName = "dongtaii")
+//@Document(indexName = "dongtaii")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
