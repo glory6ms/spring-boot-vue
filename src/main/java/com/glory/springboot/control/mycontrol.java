@@ -53,12 +53,6 @@ public class mycontrol {
     public Collection<es_dynamic> QueryByTimeAndLocation(@RequestBody Map<String,Object> params) {
         String timein = (String) params.get("timein");
         String timeout = (String) params.get("timeout");
-//        List centerPoint = (List) params.get("center_point");
-//        Double lineLength = Double.parseDouble(params.get("line_length").toString());
-//        Double[] cpoint = new Double[2];
-//        cpoint[0] = new Double(centerPoint.get(0).toString());
-//        cpoint[1] = new Double(centerPoint.get(1).toString());
-//        System.out.println(lineLength);
         String startPoint = (String) params.get("start_point");//前端限制了这两个字段为字符串类型
         String[] start = startPoint.split(",");
         String endPoint = (String) params.get("end_point");
@@ -73,31 +67,51 @@ public class mycontrol {
         }else {
             List<es_dynamic> check = mydao.Check(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
             System.out.println("流量统计" + check.size());
-            return check;//landCourse,landSpeed,time
+            return check;
+//            Collection<es_dynamic> passLine = mydao.isPassLine(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
+//            return passLine;
         }
     }
+
+    /**
+     * @param params {timein:开始时间,timeout:结束时间,in:缓冲区内环,out:缓冲区外环，line:绘制的区域边界}
+     *               method:1.es时间段过滤and geoPolygonQuery落在缓冲区外环内的点 not 落在缓冲区内环的点+sort(mmsi,time)，得到所有落在缓冲区的点
+     *               2.对所有点循环,判断是否在给定区域内，如果同一mmsi下状态不同，即为进出了一次区域
+     * @return 船舶进出区域的数量，时间
+     */
     @PostMapping("/QueryByPolygonRange")
-    public List<SearchHit<es_dynamic>> QueryByPolygonRange(@RequestBody Map<String,Object> params) {
+    public Map<String, Object> QueryByPolygonRange(@RequestBody Map<String, Object> params) {
         String timein = (String) params.get("timein");
         String timeout = (String) params.get("timeout");
         Object in = params.get("in"); // in可能为空
         Object out = params.get("out");
+        Object lines = params.get("line");
+
         ArrayList<List<Double>> buffer_in = (ArrayList<List<Double>>) in;
         ArrayList<List<Double>> buffer_out = (ArrayList<List<Double>>) out;
+        ArrayList<List<Double>> edge = (ArrayList<List<Double>>) lines;
+//        System.out.println(edge.get(1).get(0));
         List<GeoPoint> geoPoints_in = new ArrayList<>();
         List<GeoPoint> geoPoints_out = new ArrayList<>();
-//        for (int i=0;i<buffer_out.size();i++){
-//            geoPoints.add(new GeoPoint(buffer_test.get(i).get(1),buffer_test.get(i).get(0)));
-////            System.out.println(buffer_test.get(i).get(0));
-//        }
-        for(List<Double> inPo : buffer_in){
-            geoPoints_in.add(new GeoPoint(inPo.get(1),inPo.get(0)));
+        if (buffer_in!=null) {
+            for (List<Double> inPo : buffer_in) {
+                geoPoints_in.add(new GeoPoint(inPo.get(1), inPo.get(0)));
+            }
+        }else {
+            geoPoints_in=null;
         }
-        for (List<Double> outPo : buffer_out){
-            geoPoints_out.add(new GeoPoint(outPo.get(1),outPo.get(0)));
+
+        for (List<Double> outPo : buffer_out) {
+            geoPoints_out.add(new GeoPoint(outPo.get(1), outPo.get(0)));
         }
+        //查询落在缓冲区内的点
         List<SearchHit<es_dynamic>> searchHits = mydao.QueryByPolygonRange(timein, timeout, geoPoints_in, geoPoints_out);
-        return searchHits;
+        Collection<es_dynamic> es_dynamics = mydao.CheckInPolygon(searchHits, edge);
+//        System.out.println(es_dynamics.size());
+        Map<String, Object> map = new HashMap<>();
+        map.put("pois", searchHits);
+        map.put("result", es_dynamics);
+        return map;
     }
 
 }

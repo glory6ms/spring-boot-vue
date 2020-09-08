@@ -53,7 +53,6 @@ public class mydao {
                 return predicate;
             }
         };
-//        Sort sort = Sort.by(Sort.Order.asc("time"));
         Pageable pageable = PageRequest.of(1, 1000);
         Page<DynamicEntity> page1 = dynamicResp.findAll(specification, pageable);
         return page1;
@@ -133,14 +132,21 @@ public class mydao {
 //        System.out.println(list.size());
 //        return list;
     }
-    public List<SearchHit<es_dynamic>> QueryByPolygonRange(String timein, String timeout, List<GeoPoint> in, List<GeoPoint> out){
-        String[] include = {"mmsi","location","time"}; // 输出参数过滤
-        FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,null);
-        PageRequest pageRequest = PageRequest.of(0,10000);
-        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                .filter(boolQuery().must(rangeQuery("time").gte(timein).lte(timeout)))
-                .must(geoPolygonQuery("location",out))
-                .mustNot(geoPolygonQuery("location",in));
+    public List<SearchHit<es_dynamic>> QueryByPolygonRange(String timein, String timeout, List<GeoPoint> in, List<GeoPoint> out) {
+        String[] include = {"mmsi", "location", "time"}; // 输出参数过滤
+        FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include, null);
+        PageRequest pageRequest = PageRequest.of(0, 10000);
+        BoolQueryBuilder boolQueryBuilder;
+        if (in == null){
+            boolQueryBuilder = QueryBuilders.boolQuery()
+                    .filter(boolQuery().must(rangeQuery("time").gte(timein).lte(timeout)))
+                    .must(geoPolygonQuery("location", out));
+        }else {
+            boolQueryBuilder = QueryBuilders.boolQuery()
+                    .filter(boolQuery().must(rangeQuery("time").gte(timein).lte(timeout)))
+                    .must(geoPolygonQuery("location", out))
+                    .mustNot(geoPolygonQuery("location", in));
+        }
         NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
                 .withSourceFilter(fetchSourceFilter)
                 .withPageable(pageRequest)
@@ -148,10 +154,73 @@ public class mydao {
                 .withSort(SortBuilders.fieldSort("time").order(SortOrder.ASC));
         IndexCoordinates index = IndexCoordinates.of("trajectory");
         SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
-        System.out.println("领域内的点个数: "+search.getTotalHits());
-        System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
+        System.out.println("领域内的点个数: " + search.getTotalHits());
+//        System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
         return search.getSearchHits();
     }
+
+    /**
+     * @param hits    落在缓冲区内的点集合
+     * @param polygon 活跃度统计绘制的区域
+     * @return
+     * @method 一次循环，判断同一个mmsi下的船舶轨迹是否在区域内的状态，如果上个轨迹点在区域内，下一个不在即认定出了区域
+     */
+    public Collection<es_dynamic> CheckInPolygon(List<SearchHit<es_dynamic>> hits, ArrayList<List<Double>> polygon) {
+        List<es_dynamic> result = new ArrayList<>();
+        List<Boolean> states = new ArrayList<>();
+        for (int i = 0; i < hits.size(); i++) {
+            es_dynamic dynamic = hits.get(i).getContent();
+            states.add(isPoiWithinPoly(dynamic, polygon));
+            if (i != 0) {
+                if (dynamic.mmsi == hits.get(i - 1).getContent().mmsi) {
+                    if (states.get(i) != states.get(i - 1)) {
+                        result.add(dynamic);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    public Boolean isPoiWithinPoly(es_dynamic dynamic, ArrayList<List<Double>> poly) {
+        int sissc = 0;
+        for (int i = 0; i < poly.size() - 1; i++) {
+            Double[] poi = {dynamic.location[0].doubleValue(), dynamic.location[1].doubleValue()};
+            if (isRayIntersectsSegment(poi, poly.get(i), poly.get(i + 1))) {
+                sissc++;
+            }
+        }
+        return sissc % 2 != 0;
+    }
+
+    public Boolean isRayIntersectsSegment(Double[] poi, List<Double> s_poi, List<Double> e_poi) {
+        if (s_poi.get(1) == e_poi.get(1)) {
+            return false;
+        }
+        if (s_poi.get(1) > poi[1] && e_poi.get(1) > poi[1]) {
+            return false;
+        }
+        if (s_poi.get(1) < poi[1] && e_poi.get(1) < poi[1]) {
+            return false;
+        }
+        if (s_poi.get(1) == poi[1] && e_poi.get(1) > poi[1]) {
+            return false;
+        }
+        if (e_poi.get(1) == poi[1] && s_poi.get(1) > poi[1]) {
+            return false;
+        }
+        if (s_poi.get(0) < poi[0] && e_poi.get(0) < poi[1]) {
+            return false;
+        }
+
+
+        Double xseg = e_poi.get(0) - (e_poi.get(0) - s_poi.get(0)) * (e_poi.get(1) - poi[1]) / (e_poi.get(1) - s_poi.get(1));
+        if (xseg < poi[0]) {
+            return false;
+        }
+        return true;
+    }
+
     public List<SearchHit<es_dynamic>> QueryByTimeAndLocation2(String timein, String timeout,Double top,Double left,Double bottom,Double right){
         //2-1
         String[] include = {"mmsi","location","landCourse","landSpeed","time"}; // 输出参数过滤
@@ -162,7 +231,9 @@ public class mydao {
                 .must(geoBoundingBoxQuery("location").setCorners(top,left,bottom,right));
         NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
                 .withSourceFilter(fetchSourceFilter)
-                .withPageable(pageRequest);
+                .withPageable(pageRequest)
+                .withSort(SortBuilders.fieldSort("mmsi").order(SortOrder.ASC))
+                .withSort(SortBuilders.fieldSort("time").order(SortOrder.ASC));
         IndexCoordinates index = IndexCoordinates.of("trajectory");
         //2-1
 //        SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
@@ -183,6 +254,64 @@ public class mydao {
         template.searchScrollClear(id);
         System.out.println("领域内的点个数: "+list.size());
         return list;
+    }
+    public Collection<es_dynamic> isPassLine(List<SearchHit<es_dynamic>> searchHits,BigDecimal lng1, BigDecimal lat1, BigDecimal lng2, BigDecimal lat2){
+        int j;
+        int step = 2;
+        List<es_dynamic> collection = new ArrayList<>();
+        for(int i=0;i<searchHits.size();){
+            es_dynamic dynamicStart = searchHits.get(i).getContent();
+            Double lengthStart = getLength(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), dynamicStart.location[0].doubleValue(), dynamicStart.location[1].doubleValue());
+            j=i+step;
+            if (j>=searchHits.size()){
+                break;
+            }
+            es_dynamic dynamicEnd = searchHits.get(j).getContent();
+            Double lengthEnd = getLength(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), dynamicEnd.location[0].doubleValue(), dynamicEnd.location[1].doubleValue());
+            if (dynamicStart.mmsi == dynamicEnd.mmsi){
+                // 判断两个点是否中截面同侧
+                Double p1 = (lat1.doubleValue() - lat2.doubleValue()) * dynamicStart.location[0].doubleValue() + (lng2.doubleValue() - lng1.doubleValue()) * dynamicStart.location[1].doubleValue() + lng1.doubleValue() * lat2.doubleValue() - lng2.doubleValue() * lat1.doubleValue();
+                Double p2 = (lat1.doubleValue() - lat2.doubleValue()) * dynamicEnd.location[0].doubleValue() + (lng2.doubleValue() - lng1.doubleValue()) * dynamicEnd.location[1].doubleValue() + lng1.doubleValue() * lat2.doubleValue() - lng2.doubleValue() * lat1.doubleValue();
+                if (p1 * p2 > 0){
+                    //在同侧.
+                    if (lengthEnd<lengthStart){
+                        step=2;
+                    }else {
+                        step=step*2;
+                    }
+                }else {
+                    //不在同侧，连线判断是否过截面
+                    if (!intersection(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), dynamicStart.location[0].doubleValue(), dynamicStart.location[1].doubleValue(), dynamicEnd.location[0].doubleValue(), dynamicEnd.location[1].doubleValue())) {
+//                            System.out.println("不相交");
+                        step=step*2;
+                    } else {
+//                            System.out.println("相交");
+                        collection.add(dynamicStart);
+                    }
+                }
+            }else {
+                //判断该船将来是否会通过截面
+                Double lc1 = Math.toRadians(dynamicStart.landCourse.doubleValue()); // 化为弧度
+                if (lc1 > 0){
+                    BigDecimal x_sp = dynamicStart.landSpeed.multiply(BigDecimal.valueOf(Math.sin(lc1))).setScale(5, RoundingMode.HALF_UP);
+                    BigDecimal y_sp = dynamicStart.landSpeed.multiply(BigDecimal.valueOf(Math.cos(lc1))).setScale(5, RoundingMode.HALF_UP);
+                    BigDecimal lng_new = x_sp.multiply(new BigDecimal(0.08)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP).add(dynamicStart.location[0]);
+                    BigDecimal lat_new = y_sp.multiply(new BigDecimal(0.08)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP).add(dynamicStart.location[1]);
+                    if (!intersection(lng1.doubleValue(), lat1.doubleValue(), lng2.doubleValue(), lat2.doubleValue(), dynamicStart.location[0].doubleValue(), dynamicStart.location[1].doubleValue(), lng_new.doubleValue(), lat_new.doubleValue())) {
+//                            System.out.println("不相交");
+                    } else {
+//                            System.out.println("相交");
+                        collection.add(dynamicStart);
+                    }
+                }
+                j=i+1;
+                while (searchHits.get(j).getContent().mmsi==dynamicStart.mmsi){
+                    j=j+2;
+                }
+            }
+            i=j;
+        }
+        return collection;
     }
     public List<es_dynamic> Check(List<SearchHit<es_dynamic>> searchHits,BigDecimal lng1, BigDecimal lat1, BigDecimal lng2, BigDecimal lat2){
         List<es_dynamic> collection1= new ArrayList<>();
@@ -209,22 +338,6 @@ public class mydao {
 
                 if (collection2.size() < 2) {
                     //按现有速度判断五分钟后，该船的位置，把两个点相连，判断是否过断面
-                    // 需要验证一下！！
-                    /**
-                     * BigDecimal old_lng = tmp.getLng();
-                     *                         BigDecimal old_lat = tmp.getLat();
-                     *                         BigDecimal land_course = tmp.getLandCourse();
-                     *                         BigDecimal land_speed = tmp.getLandSpeed();
-                     *                         //行驶的航速
-                     *                         BigDecimal x_sp = land_speed.multiply(BigDecimal.valueOf(Math.sin(land_course.doubleValue()*Math.PI/180))).setScale(5, RoundingMode.HALF_UP);
-                     *                         BigDecimal y_sp = land_speed.multiply(BigDecimal.valueOf(Math.cos(land_course.doubleValue()*Math.PI/180))).setScale(5, RoundingMode.HALF_UP);
-                     *                         System.out.println("x_sp:"+x_sp+"y_sp"+y_sp);
-                     *                         //行驶了多少海里,0.010小时
-                     *                         BigDecimal x_distance = x_sp.multiply(new BigDecimal(0.01)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
-                     *                         BigDecimal y_distance = y_sp.multiply(new BigDecimal(0.01)).divide(new BigDecimal(60),6, RoundingMode.HALF_UP);
-                     *                         BigDecimal add_lng = old_lng.add(x_distance);
-                     *                         BigDecimal add_lat = old_lat.add(y_distance);
-                     */
                     BigDecimal landCourse = collection2.get(0).landCourse;
                     BigDecimal landSpeed = collection2.get(0).landSpeed;
                     double lc1 = Math.toRadians(landCourse.doubleValue());
