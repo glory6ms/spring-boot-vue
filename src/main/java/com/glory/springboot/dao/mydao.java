@@ -96,41 +96,42 @@ public class mydao {
         PageRequest pageRequest = PageRequest.of(0,1000);
         //1-1
         BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery()
-                .filter(boolQuery().must(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE))
-                .must(rangeQuery("time").gte(timein).lte(timeout)));
-        GeoDistanceSortBuilder sort = SortBuilders.geoDistanceSort("location", lat, lng).geoDistance(GeoDistance.PLANE).unit(DistanceUnit.KILOMETERS).order(SortOrder.ASC);
+                .filter(rangeQuery("time").gte(timein).lte(timeout))
+                        .must(boolQuery().must(geoDistanceQuery("location").distance(lineLength, DistanceUnit.KILOMETERS).point(lat, lng).geoDistance(GeoDistance.PLANE)));
+//        GeoDistanceSortBuilder sort = SortBuilders.geoDistanceSort("location", lat, lng).geoDistance(GeoDistance.PLANE).unit(DistanceUnit.KILOMETERS).order(SortOrder.ASC);
         NativeSearchQueryBuilder nativeSearchQueryBuilder = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
                 .withSourceFilter(fetchSourceFilter)
-                .withPageable(pageRequest);
-//                .withSort(sort)
+                .withPageable(pageRequest)
+                .withSort(SortBuilders.fieldSort("mmsi").order(SortOrder.ASC))
+                .withSort(SortBuilders.fieldSort("time").order(SortOrder.ASC));
         IndexCoordinates index = IndexCoordinates.of("trajectory");
         //1-1
-        SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
-        List<SearchHit<es_dynamic>> searchHits = search.getSearchHits();
-        System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
-        System.out.println("领域内的点个数: "+search.getTotalHits());
-
-        Iterator<SearchHit<es_dynamic>> iterator = searchHits.iterator();
-        while (iterator.hasNext()){
-            System.out.println(iterator.next().getContent());
-        }
-        return searchHits;
+//        SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index);
+//        List<SearchHit<es_dynamic>> searchHits = search.getSearchHits();
+//        System.out.println(nativeSearchQueryBuilder.build().getQuery().toString());
+//        System.out.println("领域内的点个数: "+search.getTotalHits());
+//
+//        Iterator<SearchHit<es_dynamic>> iterator = searchHits.iterator();
+//        while (iterator.hasNext()){
+//            System.out.println(iterator.next().getContent());
+//        }
+//        return searchHits;
 
         //1-2
-//        SearchScrollHits<es_dynamic> scroll = template.searchScrollStart(1000,nativeSearchQueryBuilder.build(),es_dynamic.class,index);
-//        String scrollId = scroll.getScrollId();
-//        List<String> id =new ArrayList<>();
-//        id.add(scrollId);
-//        List<SearchHit<es_dynamic>> list = new ArrayList<>();
-//        while(scroll.hasSearchHits()){
-//            list.addAll(scroll.getSearchHits());
-//            scrollId = scroll.getScrollId();
-//            scroll=template.searchScrollContinue(scrollId,1000,es_dynamic.class,index);
-//            id.add(scrollId);
-//        }
-//        template.searchScrollClear(id);
-//        System.out.println(list.size());
-//        return list;
+        SearchScrollHits<es_dynamic> scroll = template.searchScrollStart(1000,nativeSearchQueryBuilder.build(),es_dynamic.class,index);
+        String scrollId = scroll.getScrollId();
+        List<String> id =new ArrayList<>();
+        id.add(scrollId);
+        List<SearchHit<es_dynamic>> list = new ArrayList<>();
+        while(scroll.hasSearchHits()){
+            list.addAll(scroll.getSearchHits());
+            scrollId = scroll.getScrollId();
+            scroll=template.searchScrollContinue(scrollId,1000,es_dynamic.class,index);
+            id.add(scrollId);
+        }
+        template.searchScrollClear(id);
+        System.out.println(list.size());
+        return list;
     }
     public List<SearchHit<es_dynamic>> QueryByPolygonRange(String timein, String timeout, List<GeoPoint> in, List<GeoPoint> out) {
         String[] include = {"mmsi", "location", "time"}; // 输出参数过滤

@@ -57,19 +57,23 @@ public class mycontrol {
         String[] start = startPoint.split(",");
         String endPoint = (String) params.get("end_point");
         String[] end = endPoint.split(",");
-        Double top = Math.max(Double.parseDouble(start[1]),Double.parseDouble(end[1]));
-        Double bottom = Math.min(Double.parseDouble(start[1]),Double.parseDouble(end[1]));
-        Double right = Math.max(Double.parseDouble(start[0]),Double.parseDouble(end[0]));
-        Double left = Math.min(Double.parseDouble(start[0]),Double.parseDouble(end[0]));
-        List<SearchHit<es_dynamic>> searchHits = mydao.QueryByTimeAndLocation2(timein, timeout, top, left, bottom, right);
+        Double lineLength = (Double) params.get("line_length");
+        ArrayList<Double> centerPoint = (ArrayList<Double>) params.get("center_point");
+        System.out.println(centerPoint);
+        List<SearchHit<es_dynamic>> searchHits = mydao.QueryByTimeAndLocation(timein, timeout, centerPoint.get(0), centerPoint.get(1), lineLength);
+//        Double top = Math.max(Double.parseDouble(start[1]),Double.parseDouble(end[1]));
+//        Double bottom = Math.min(Double.parseDouble(start[1]),Double.parseDouble(end[1]));
+//        Double right = Math.max(Double.parseDouble(start[0]),Double.parseDouble(end[0]));
+//        Double left = Math.min(Double.parseDouble(start[0]),Double.parseDouble(end[0]));
+//        List<SearchHit<es_dynamic>> searchHits = mydao.QueryByTimeAndLocation2(timein, timeout, top, left, bottom, right);
         if(start.length<1||end.length<1){
             return null;
         }else {
-            List<es_dynamic> check = mydao.Check(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
-            System.out.println("流量统计" + check.size());
-            return check;
-//            Collection<es_dynamic> passLine = mydao.isPassLine(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
-//            return passLine;
+//            List<es_dynamic> check = mydao.Check(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
+//            System.out.println("流量统计" + check.size());
+//            return check;
+            Collection<es_dynamic> passLine = mydao.isPassLine(searchHits, new BigDecimal(start[0]), new BigDecimal(start[1]), new BigDecimal(end[0]), new BigDecimal(end[1]));
+            return passLine;
         }
     }
 
