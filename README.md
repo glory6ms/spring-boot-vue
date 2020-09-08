@@ -5,7 +5,7 @@ vue-learn-ol的后端
 
 mysql--jpa
 
-elasticsearch -- springData ElasticSearch 版本7.50
+elasticsearch -- springData ElasticSearch 版本7.60
 
 es学习--目前不记录es的概念和设计思路，只记录理解的内容
 
