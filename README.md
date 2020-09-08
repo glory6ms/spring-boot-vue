@@ -5,7 +5,7 @@ vue-learn-ol的后端
 
 mysql--jpa
 
-elasticsearch -- springData ElasticSearch 版本7.50
+elasticsearch -- springData ElasticSearch 版本7.60
 
 es学习--目前不记录es的概念和设计思路，只记录理解的内容
 
@@ -42,13 +42,13 @@ java:
 	SearchHits<es_dynamic> search = operations.search(nativeSearchQueryBuilder.build(), es_dynamic.class, index); // 发出请求 
 // search.getSearchHits().get(i).getContent就可以得到一个文档了 
 
-2.显示输出与排序的实现  
-  String[] include = {"mmsi","location","landCourse","landSpeed","time"}; //输出中打印的字段  
-  String exclude = null; //输出中排除的字段 
-  FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,exclude); //过滤  
-  PageRequest pageRequest = PageRequest.of(0,1000); //分页，参数(页面，页面大小)  
-  
-  // 实现 new NativeSearchQueryBuilder().withQuery(boolQueryBuilder).withSourceFilter(fetchSourceFilter).withPageable(pageRequest); 
+2.显示输出与排序的实现 
+
+  	String[] include = {"mmsi","location","landCourse","landSpeed","time"}; //输出中打印的字段  
+  	String exclude = null; //输出中排除的字段 
+  	FetchSourceFilter fetchSourceFilter = new FetchSourceFilter(include,exclude); //过滤  
+  	PageRequest pageRequest = PageRequest.of(0,1000); //分页，参数(页面，页面大小)  
+  	// 实现 new NativeSearchQueryBuilder().withQuery(boolQueryBuilder).withSourceFilter(fetchSourceFilter).withPageable(pageRequest); 
 
 3.查询与过滤
 
@@ -128,10 +128,10 @@ java:
 
 5.地理位置
 
-官方文档讲得比较详细，如何初始化以及四种过滤方法。唯一指定的坑就是geo_point结构里面是经度在前纬度在后，查询体和Java里面是lat,lon，不然会出现geo_point类型的点无法初始化的问题。
+  官方文档讲得比较详细，如何初始化以及四种过滤方法。唯一指定的坑就是geo_point结构里面是经度在前纬度在后，查询体和Java里面是lat,lon，不然会出现geo_point类型的点无法初始化的问题。
 
 6.聚合
-聚合官方文档里也很详细，实现起来也不难，比较难的就是结果集的获取，单步调试了很多次才得到统计结果，聚合得到的seach里面是个k:v嵌套怪,java里面部分字段还获取不到 
+  聚合官方文档里也很详细，实现起来也不难，比较难的就是结果集的获取，单步调试了很多次才得到统计结果，聚合得到的seach里面是个k:v嵌套怪,java里面部分字段还获取不到 
 例子，桶聚合里面统计一个字段的值落在等距区间内的个数  
 
 	AbstractAggregationBuilder aggregationBuilder= AggregationBuilders.histogram("histogram_speed").field("landSpeed").interval(2.0).minDocCount(1);  
