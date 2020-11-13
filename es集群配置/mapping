@@ -72,3 +72,23 @@ PUT localhost:9200/dontaii
             }
 	}
 }
+
+PUT /example
+{
+    "mappings": {
+        "properties": {
+            "location": {
+                "type": "geo_shape"
+            }
+        }
+    }
+}
+POST /example/_doc
+{
+    "location" : {
+        "type" : "polygon",
+        "coordinates" : [
+            [ [100.0, 0.0], [101.0, 0.0], [101.0, 1.0], [100.0, 1.0], [100.0, 0.0] ]
+        ]
+    }
+}

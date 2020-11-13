@@ -141,4 +141,20 @@ public class DynamicEntity {
          this.lng = lng;
          this.lat = lat;
     }
+
+    @Override
+    public String toString() {
+        return "DynamicEntity{" +
+                "aistype='" + aistype + '\'' +
+                ", landCourse=" + landCourse +
+                ", landSpeed=" + landSpeed +
+                ", lat=" + lat +
+                ", lng=" + lng +
+                ", mmsi=" + mmsi +
+                ", precion='" + precion + '\'' +
+                ", shipCourse=" + shipCourse +
+                ", shipState='" + shipState + '\'' +
+                ", time='" + time + '\'' +
+                '}';
+    }
 }

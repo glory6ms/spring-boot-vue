@@ -10,6 +10,6 @@ import java.util.Date;
 
 //mysql-jpa数据操作的repository
 public interface dynamicResp extends JpaRepository<DynamicEntity,Integer>, JpaSpecificationExecutor<DynamicEntity> {
-    @Query("select new DynamicEntity(d.lng,d.lat) from DynamicEntity d where d.time between ?1 and ?2")
+    @Query("select d from DynamicEntity d where d.time between ?1 and ?2")
     Collection<DynamicEntity> findBetweenTime(String timein, String timeout);
 }
